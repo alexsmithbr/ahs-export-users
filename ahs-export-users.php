@@ -57,13 +57,13 @@ add_action('restrict_manage_users', 'ahs_add_export_button', 10, 5);
  * @author Alex Smith
  */
 function ahs_export_users($args) {
-    if ( array_key_exists('export_all_data', $_REQUEST) ) {
+    if ( array_key_exists('ahs_export_all_data', $_REQUEST) ) {
         // remove number of records limitations
         $new_args = $args;
         $new_args['number'] = 0;
         $new_args['offset'] = 0;
 
-        // avoid existing filenames overwriting
+        // avoid overwriting existing filenames
         $file = '';
         do {
             $file = '/tmp/users_export_' . date('Y-m-d_H-i-s') . '.csv';
@@ -77,16 +77,12 @@ function ahs_export_users($args) {
         $fp = fopen($file, 'w');
 
         $header = array(
-            'User ID',
-            'HRMIS',
-            'E-mail',
-            'Name',
-            'Roles',
-            'Address 1',
-            'Address 2',
-            'City',
-            'Postal code',
-            'Country',
+            'ID',
+            'user_login',
+            'user_email',
+            'first_name',
+            'last_name',
+            'roles',
         );
 
         fputcsv($fp, $header);
@@ -96,25 +92,13 @@ function ahs_export_users($args) {
                 $user_object->ID,
                 $user_object->user_login,
                 $user_object->user_email,
-                $user_object->first_name . ' ' . $user_object->last_name,
+                $user_object->first_name,
+                $user_object->last_name,
                 implode(', ', $user_object->roles),
             );
 
-            $entry = GFAPI::get_entry($user_object->get('entry_id')); 
-            if ( get_class($entry) == 'WP_Error' ) {
-                $data[] = '';
-                $data[] = '';
-                $data[] = '';
-                $data[] = '';
-                $data[] = '';
-            } else {
-                // FIXME: hard-coded entries can stop working when form fields change in GF.
-                $data[] = $entry['10.1']; // address 1
-                $data[] = $entry['10.3']; // address 2
-                $data[] = $entry['10.4']; // city
-                $data[] = $entry['10.5']; // postal code
-                $data[] = $entry['10.6']; // country
-            }
+            // TODO: allow reading data from other sources, like GravityForms meta, etc.
+            // Maybe via apply_filter()
 
             fputcsv($fp, $data);
         }
@@ -175,12 +159,12 @@ function ahs_export_users_settings_init() {
  
 	// register a new field in the "wporg_section_developers" section, inside the "wporg" page
 	add_settings_field(
-		'wporg_field_pill', // as of WP 4.6 this value is used only internally
+		'ahs_users_export_section_developers', // as of WP 4.6 this value is used only internally
 		// use $args' label_for to populate the id inside the callback
 		__( 'Pill', 'wporg' ),
-		'wporg_field_pill_cb',
-		'wporg',
-		'wporg_section_developers',
+		'ahs_field_pill_cb',
+		'ahs',
+		'ahs_users_export_section_developers',
 		[
 			'label_for' => 'wporg_field_pill',
 			'class' => 'wporg_row',
@@ -218,14 +202,15 @@ function ahs_export_users_cb( $args ) {
 // the "label_for" key value is used for the "for" attribute of the <label>.
 // the "class" key value is used for the "class" attribute of the <tr> containing the field.
 // you can add custom key value pairs to be used inside your callbacks.
-function wporg_field_pill_cb( $args ) {
+function ahs_field_pill_cb( $args ) {
+    var_dump('here');
 	// get the value of the setting we've registered with register_setting()
-	$options = get_option( 'wporg_options' );
+	$options = get_option( 'ahs_export_users_options' );
 	// output the field
 	?>
 		<select id="<?php echo esc_attr( $args['label_for'] ); ?>"
 		data-custom="<?php echo esc_attr( $args['wporg_custom_data'] ); ?>"
-		name="wporg_options[<?php echo esc_attr( $args['label_for'] ); ?>]"
+		name="ahs_export_users_options[<?php echo esc_attr( $args['label_for'] ); ?>]"
 		>
 			<option value="red" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'red', false ) ) : ( '' ); ?>>
 			<?php esc_html_e( 'red pill', 'wporg' ); ?>
@@ -252,7 +237,7 @@ function ahs_users_export_submenu() {
         'Export user settings', // page title
         'Export user settings', // menu title
         'manage_options', // capability
-        'wporg', // menu slug
+        'ahs_export_users', // menu slug
         'ahs_users_page_html' // function to be called
     );
 }
